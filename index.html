@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تحدي التحويلات الهندسية - النسخة الاحترافية</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&family=Amiri:wght@700&display=swap"
+        rel="stylesheet">
+
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <script>
+        // إعدادات Supabase
+        // ضع رابط مشروعك ومفتاح anon key هنا
+        const SUPABASE_URL = 'https://eopueanxzvqdpusdtquw.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_qgI3CnxMlUl_6maMswJXGw_se2MUGfo';
+
+        window.isConfigured = false;
+        window.gameDb = null;
+
+        try {
+            if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
+                const { createClient } = window.supabase;
+                window.gameDb = createClient(SUPABASE_URL, SUPABASE_KEY);
+                window.isConfigured = true;
+                console.log('✅ Supabase connected successfully');
+            } else {
+                console.error('❌ Supabase SDK not loaded');
+            }
+        } catch (e) {
+            console.error('❌ Supabase init error:', e);
+        }
+    </script>
+
+    <link rel="stylesheet" href="style.css">
+    <script src="questions.js"></script>
+</head>
+
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <!-- نافذة التنبيهات -->
+    <div id="modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
+        <div class="bg-slate-800 p-6 rounded-2xl max-w-sm w-full text-center border border-slate-700">
+            <p id="modal-msg" class="mb-6"></p>
+            <button onclick="closeModal()" class="w-full bg-sky-500 py-3 rounded-xl font-bold">حسناً</button>
+        </div>
+    </div>
+
+    <!-- نافذة كلمة المرور -->
+    <div id="password-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
+        <div class="bg-slate-800 p-6 rounded-2xl max-w-sm w-full text-center border border-slate-700">
+            <p id="password-modal-msg" class="mb-4 font-bold">أدخل كلمة مرور المعلم:</p>
+            <input type="password" id="password-input" class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-center text-white outline-none focus:border-sky-500 mb-4" placeholder="كلمة المرور">
+            <div class="flex gap-3">
+                <button onclick="submitPassword()" class="flex-1 bg-sky-500 py-3 rounded-xl font-bold">دخول</button>
+                <button onclick="closePasswordModal()" class="flex-1 bg-slate-700 py-3 rounded-xl font-bold">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- نافذة التأكيد -->
+    <div id="confirm-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
+        <div class="bg-slate-800 p-6 rounded-2xl max-w-sm w-full text-center border border-slate-700">
+            <p id="confirm-msg" class="mb-6"></p>
+            <div class="flex gap-3">
+                <button id="confirm-yes" class="flex-1 bg-rose-600 py-3 rounded-xl font-bold">نعم</button>
+                <button onclick="closeConfirmModal()" class="flex-1 bg-slate-700 py-3 rounded-xl font-bold">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- شاشة البداية -->
+    <div id="start-screen" class="w-full max-w-md p-8 rounded-3xl glass text-center border border-sky-500/20">
+        <h1 class="text-3xl font-bold mb-2">تحدي التحويلات</h1>
+        <p class="text-sky-400 mb-8 text-sm">أ/ محمد القرني</p>
+
+        <div class="space-y-4">
+            <input type="text" id="user-name"
+                class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-center text-white outline-none focus:border-sky-500"
+                placeholder="الاسم الثلاثي للطالب">
+            <button onclick="startGame()"
+                class="w-full bg-sky-600 hover:bg-sky-500 py-4 rounded-xl font-bold text-lg shadow-lg">بدء
+                التحدي</button>
+            <div class="pt-4 border-t border-slate-700">
+                <button onclick="showTeacherPanel()" class="text-slate-500 hover:text-white text-sm">لوحة
+                    المعلم</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- لوحة التحكم -->
+    <div id="dashboard" class="hidden w-full max-w-4xl p-6 rounded-3xl glass border border-slate-700">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold">نتائج الطلاب</h2>
+            <div class="flex gap-2">
+                <button onclick="exportData()" class="bg-emerald-600 px-4 py-2 rounded-lg text-xs font-bold">تحميل
+                    Excel</button>
+                <button onclick="clearAllData()" class="bg-rose-600 px-4 py-2 rounded-lg text-xs font-bold">مسح
+                    الكل</button>
+                <button onclick="location.reload()" class="bg-slate-700 px-4 py-2 rounded-lg text-xs">خروج</button>
+            </div>
+        </div>
+
+        <div id="config-alert"
+            class="hidden bg-amber-500/10 border border-amber-500/30 p-4 rounded-xl mb-4 text-amber-500 text-xs text-center">
+            تنبيه: أنت تستخدم وضع العرض فقط. ليعمل الجدول، يجب إضافة مفاتيح Supabase في الكود.
+        </div>
+
+        <div class="overflow-hidden rounded-xl border border-slate-700 bg-slate-900/50">
+            <table class="w-full text-right text-sm">
+                <thead class="bg-slate-800 text-slate-400">
+                    <tr>
+                        <th class="p-4">اسم الطالب</th>
+                        <th class="p-4">الدرجة</th>
+                        <th class="p-4">النسبة</th>
+                        <th class="p-4">الوقت</th>
+                    </tr>
+                </thead>
+                <tbody id="scores-table" class="divide-y divide-slate-800"></tbody>
+            </table>
+            <div id="loader" class="p-8 text-center text-slate-500">جاري جلب النتائج...</div>
+        </div>
+    </div>
+
+    <!-- شاشة اللعب -->
+    <div id="game-screen" class="hidden w-full max-w-3xl glass p-6 md:p-10 rounded-3xl text-center">
+        <div class="flex justify-between mb-8 pb-4 border-b border-slate-700">
+            <span id="q-label" class="bg-sky-500/20 text-sky-400 px-3 py-1 rounded-full text-xs font-bold">سؤال 1 /
+                30</span>
+            <span id="player-label" class="text-slate-400 text-sm"></span>
+            <span id="score-label" class="text-emerald-400 font-bold">النقاط: 0</span>
+        </div>
+        <div id="question-text" class="text-2xl font-bold mb-10 min-h-[80px]"></div>
+        <div id="options-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+    </div>
+
+    <!-- شاشة النهاية -->
+    <div id="end-screen" class="hidden w-full max-w-md glass p-10 rounded-3xl text-center">
+        <div class="text-6xl mb-4">🎖️</div>
+        <h2 class="text-3xl font-bold mb-2">تم الإرسال بنجاح</h2>
+        <p class="text-slate-400 mb-8">سيتمكن المعلم من مراجعة نتيجتك</p>
+        <div class="bg-slate-800/50 p-6 rounded-2xl mb-8">
+            <p class="text-4xl font-black text-emerald-400" id="final-score">0 / 30</p>
+            <p class="text-sky-400 font-bold" id="final-percent">0%</p>
+        </div>
+        <button onclick="location.reload()" class="w-full bg-white text-slate-900 font-bold py-3 rounded-xl">العودة
+            للرئيسية</button>
+    </div>
+
+    <script>
+        let currentQ = 0;
+        let score = 0;
+        let student = "";
+        let questions = [];
+
+        // الأسئلة محملة من ملف questions.js الخارجي
+
+        window.startGame = () => {
+            student = document.getElementById('user-name').value.trim();
+            if (student.split(" ").length < 3) {
+                alertModal("يجب إدخال اسمك الثلاثي للمتابعة.");
+                return;
+            }
+            questions = generateQuestions();
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            document.getElementById('player-label').innerText = student;
+            showQuestion();
+        };
+
+        function showQuestion() {
+            const q = questions[currentQ];
+            document.getElementById('q-label').innerText = `سؤال ${currentQ + 1} / 30`;
+            document.getElementById('question-text').innerHTML = q.t;
+            const grid = document.getElementById('options-grid');
+            grid.innerHTML = "";
+
+            [...q.o].sort(() => Math.random() - 0.5).forEach(opt => {
+                const b = document.createElement('button');
+                b.className = "option-btn p-4 rounded-xl font-bold";
+                b.innerHTML = opt;
+                b.onclick = () => selectOption(b, opt, q.c);
+                grid.appendChild(b);
+            });
+        }
+
+        async function selectOption(btn, chosen, correct) {
+            const all = document.querySelectorAll('.option-btn');
+            all.forEach(b => b.disabled = true);
+            if (chosen === correct) {
+                btn.classList.add('correct');
+                score++;
+                document.getElementById('score-label').innerText = `النقاط: ${score}`;
+            } else {
+                btn.classList.add('wrong');
+            }
+
+            setTimeout(async () => {
+                currentQ++;
+                if (currentQ < 30) showQuestion();
+                else await endProgress();
+            }, 800);
+        }
+
+        async function endProgress() {
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('end-screen').classList.remove('hidden');
+            document.getElementById('final-score').innerText = `${score} / 30`;
+            document.getElementById('final-percent').innerText = `${Math.round((score / 30) * 100)}%`;
+
+            if (!window.gameDb) {
+                console.warn("Supabase غير مهيأ، لن يتم حفظ النتيجة.");
+                return;
+            }
+
+            try {
+                const { error } = await window.gameDb
+                    .from('scores')
+                    .insert({
+                        name: student,
+                        score: score,
+                        percent: Math.round((score / 30) * 100)
+                    });
+                if (error) throw error;
+            } catch (e) { console.error("Supabase save fail:", e); }
+        }
+
+        // متغير لتتبع الغرض من نافذة كلمة المرور
+        let passwordPurpose = '';
+
+        window.showTeacherPanel = () => {
+            passwordPurpose = 'teacher';
+            document.getElementById('password-modal-msg').innerText = 'أدخل كلمة مرور المعلم:';
+            document.getElementById('password-input').value = '';
+            document.getElementById('password-modal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('password-input').focus(), 100);
+        };
+
+        window.submitPassword = () => {
+            const p = document.getElementById('password-input').value;
+            document.getElementById('password-modal').classList.add('hidden');
+
+            if (passwordPurpose === 'teacher') {
+                if (p === '1234') {
+                    document.getElementById('start-screen').classList.add('hidden');
+                    document.getElementById('dashboard').classList.remove('hidden');
+                    if (!window.isConfigured) document.getElementById('config-alert').classList.remove('hidden');
+                    loadResults();
+                } else {
+                    alertModal('كلمة المرور غير صحيحة.');
+                }
+            } else if (passwordPurpose === 'clearData') {
+                if (p === '1234') {
+                    performClearData();
+                } else {
+                    alertModal('كلمة مرور خاطئة.');
+                }
+            }
+        };
+
+        window.closePasswordModal = () => {
+            document.getElementById('password-modal').classList.add('hidden');
+        };
+
+        // دعم Enter في حقل كلمة المرور
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('password-input').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') submitPassword();
+            });
+        });
+
+        async function loadResults() {
+            const table = document.getElementById('scores-table');
+            const loader = document.getElementById('loader');
+            table.innerHTML = "";
+            loader.innerText = "جاري التحميل...";
+
+            if (!window.gameDb) {
+                loader.innerText = "Supabase غير مهيأ. أضف المفاتيح في الكود.";
+                return;
+            }
+
+            try {
+                const { data: results, error } = await window.gameDb
+                    .from('scores')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                if (!results || results.length === 0) loader.innerText = "لا توجد نتائج حالياً.";
+                else loader.style.display = "none";
+
+                (results || []).forEach(r => {
+                    const d = r.created_at ? new Date(r.created_at).toLocaleString('ar-EG', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '---';
+                    table.innerHTML += `<tr>
+                        <td class="p-4 font-bold text-sky-300">${r.name}</td>
+                        <td class="p-4 text-emerald-400 font-mono">${r.score}/30</td>
+                        <td class="p-4 font-bold">${r.percent}%</td>
+                        <td class="p-4 text-slate-500 text-xs">${d}</td>
+                    </tr>`;
+                });
+            } catch (e) {
+                loader.innerText = "فشل التحميل. تحقق من إعدادات Supabase.";
+                console.error(e);
+            }
+        }
+
+        window.exportData = () => {
+            const table = document.getElementById('scores-table');
+            let csv = "الاسم,الدرجة,النسبة,التاريخ\n";
+            Array.from(table.rows).forEach(row => {
+                const cols = Array.from(row.cells).map(c => c.innerText);
+                csv += cols.join(",") + "\n";
+            });
+            const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `نتائج_التحويلات_${new Date().toLocaleDateString()}.csv`;
+            link.click();
+        };
+
+        window.clearAllData = () => {
+            document.getElementById('confirm-msg').innerText = 'هل أنت متأكد من مسح جميع النتائج؟ لا يمكن التراجع!';
+            document.getElementById('confirm-modal').classList.remove('hidden');
+            document.getElementById('confirm-yes').onclick = () => {
+                document.getElementById('confirm-modal').classList.add('hidden');
+                passwordPurpose = 'clearData';
+                document.getElementById('password-modal-msg').innerText = 'أدخل كلمة المرور للتأكيد:';
+                document.getElementById('password-input').value = '';
+                document.getElementById('password-modal').classList.remove('hidden');
+                setTimeout(() => document.getElementById('password-input').focus(), 100);
+            };
+        };
+
+        window.closeConfirmModal = () => {
+            document.getElementById('confirm-modal').classList.add('hidden');
+        };
+
+        async function performClearData() {
+            if (!window.gameDb) return alertModal('Supabase غير مهيأ.');
+
+            try {
+                const { error } = await window.gameDb
+                    .from('scores')
+                    .delete()
+                    .gt('id', 0);
+                if (error) throw error;
+                loadResults();
+                alertModal('تم مسح السجلات بنجاح.');
+            } catch (e) { alertModal('حدث خطأ أثناء المسح.'); console.error(e); }
+        }
+
+        function alertModal(msg) {
+            document.getElementById('modal-msg').innerText = msg;
+            document.getElementById('modal').classList.remove('hidden');
+        }
+        window.closeModal = () => document.getElementById('modal').classList.add('hidden');
+    </script>
+</body>
+
+</html>

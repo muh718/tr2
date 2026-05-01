@@ -1,0 +1,8 @@
+:root { --bg: #0f172a; --accent: #38bdf8; }
+body { font-family: 'Tajawal', sans-serif; background-color: var(--bg); color: #f8fafc; direction: rtl; }
+.math-text { direction: ltr; display: inline-block; font-family: monospace; font-weight: bold; }
+.glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+.option-btn { background: rgba(51, 65, 85, 0.5); transition: all 0.2s; border: 1px solid transparent; }
+.option-btn:hover:not(:disabled) { border-color: var(--accent); transform: translateY(-2px); }
+.correct { background: #10b981 !important; }
+.wrong { background: #f43f5e !important; }
